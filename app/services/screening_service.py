@@ -9,9 +9,11 @@ import numpy as np
 
 # 统一指标库
 from tradingagents.tools.analysis.indicators import IndicatorSpec, compute_many
-# 统一多数据源DF接口（按优先级降级）
-from tradingagents.dataflows.data_source_manager import get_data_source_manager
-from tradingagents.dataflows.providers.china.fundamentals_snapshot import get_cn_fund_snapshot
+# 统一流程接口 V2
+from tradingagents.dataflows.interface_v2 import get_dataflow_interface
+from tradingagents.models.core import SymbolKey, MarketType, TimeFrame
+# 数据库
+from app.core.database import get_mongo_db
 
 
 from app.services.screening.eval_utils import (
@@ -70,19 +72,24 @@ logger = logging.getLogger("agents")
 
 class ScreeningService:
     def __init__(self):
-        # 数据源通过统一DF接口获取，不直接绑定具体源
-        self.provider = None
+        # 数据流接口
+        self.dataflow = get_dataflow_interface()
 
     # --- 公共入口 ---
-    def run(self, conditions: Dict[str, Any], params: ScreeningParams) -> Dict[str, Any]:
-        symbols = self._get_universe()
+    async def run(self, conditions: Dict[str, Any], params: ScreeningParams) -> Dict[str, Any]:
+        print(f"DEBUG: ScreeningService.run started for market {params.market}")
+        # 转换 market 字符串为 MarketType
+        target_market = params.market
+        
+        symbols = self._get_universe(target_market)
+        print(f"DEBUG: Universe size: {len(symbols)}")
         # 为控制时长，先限制样本规模（后续用批量/缓存优化）
         symbols = symbols[:120]
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=220)
-        end_s = end_date.strftime("%Y-%m-%d")
-        start_s = start_date.strftime("%Y-%m-%d")
+        # end_s = end_date.strftime("%Y-%m-%d") # get_bars accepts datetime objects directly
+        # start_s = start_date.strftime("%Y-%m-%d")
 
         results: List[Dict[str, Any]] = []
 
@@ -101,18 +108,51 @@ class ScreeningService:
 
                 # 如需要基础行情/技术指标才取K线
                 if need_base:
-                    manager = get_data_source_manager()
-                    df = manager.get_stock_dataframe(code, start_s, end_s)
-                    if df is None or df.empty:
+                    # 使用 DataFlowInterface 获取数据
+                    try:
+                        # 构造 SymbolKey
+                        # 注意: symbols 现在是 code 的列表，_get_universe 需要更新以返回 clean codes
+                        # 或者在这里处理
+                        symbol_key = SymbolKey(market=target_market, code=code)
+                        
+                        quotes = await self.dataflow.get_bars(
+                            symbol=symbol_key,
+                            timeframe=TimeFrame.DAILY,
+                            start_date=start_date,
+                            end_date=end_date
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ 获取数据失败 {code}: {e}")
                         continue
-                    # 统一列为小写
+
+                    if not quotes:
+                        print(f"DEBUG: No quotes for {code}")
+                        continue
+                        
+                    # 转换为 DataFrame
+                    data_list = [q.model_dump() for q in quotes]
+                    df = pd.DataFrame(data_list)
+                    print(f"DEBUG: DataFrame shape for {code}: {df.shape}")
+                    if df.empty:
+                        continue
+                        
+                    # 统一列为小写 (DataFlowInterface returns standardized models, usually lower case fields)
+                    # model_dump() keys are already matching model fields: open, high, low, close, volume, etc.
+                    # 需要注意 volume vs vol, amount
+                    # StockDailyQuote: open, high, low, close, volume, amount, pct_chg, turnover
+                    
+                    # 映射列名以匹配 ScreeningService 期望的格式 (vol)
                     dfu = df.rename(columns={
-                        "Open": "open", "High": "high", "Low": "low", "Close": "close",
-                        "Volume": "vol", "Amount": "amount"
+                        "volume": "vol"
                     }).copy()
-                    # 计算派生：pct_chg
-                    if "close" in dfu.columns:
-                        dfu["pct_chg"] = dfu["close"].pct_change() * 100.0
+                    
+                    # 确保需要的列存在
+                    # pct_chg 已经在 model 中，可以直接使用，或者重新计算以保证精度?
+                    # 这里假设 model 中的数据是准确的。
+                    # 如果 model 中 pct_chg 是 None，可能需要计算。
+                    if "pct_chg" not in dfu.columns or dfu["pct_chg"].isnull().all():
+                         if "close" in dfu.columns:
+                            dfu["pct_chg"] = dfu["close"].pct_change() * 100.0
 
                     # 仅在需要技术指标时计算
                     if need_tech:
@@ -140,11 +180,16 @@ class ScreeningService:
                     passes = self._evaluate_conditions(dfc, conditions)
                 elif need_fund and not need_base and not need_tech:
                     # 仅基本面条件：使用基本面快照判断
-                    snap = get_cn_fund_snapshot(code)
-                    if not snap:
-                        passes = False
-                    else:
-                        passes = self._evaluate_fund_conditions(snap, conditions)
+                    # TODO: 基本面数据目前尚未迁移到 DataFlowInterface
+                    # 暂时跳过或使用旧方式 (如果可用)
+                    # 这里的旧方式 get_cn_fund_snapshot 已经被移除 import
+                    # 暂时不支持纯基本面筛选
+                    passes = False
+                    # snap = get_cn_fund_snapshot(code)
+                    # if not snap:
+                    #     passes = False
+                    # else:
+                    #     passes = self._evaluate_fund_conditions(snap, conditions)
 
                 if passes:
                     item = {"code": code}
@@ -203,39 +248,35 @@ class ScreeningService:
         """Delegate numeric coercion to utils."""
         return _safe_float_util(v)
 
-    def _get_universe(self) -> List[str]:
-        """获取A股代码集合：从 MongoDB stock_basic_info 集合获取所有A股股票代码"""
+    def _get_universe(self, market: str = "CN") -> List[str]:
+        """获取全域股票代码集合：从 MongoDB stock_basic_info_global 集合获取"""
         try:
-            from app.core.database import get_mongo_db
-
             db = get_mongo_db()
-            collection = db.stock_basic_info
+            collection = db.stock_basic_info_global
 
-            # 查询所有A股股票代码（兼容不同的数据结构）
+            # 查询指定市场且状态正常的股票
             cursor = collection.find(
                 {
-                    "$or": [
-                        {"market_info.market": "CN"},  # 新数据结构
-                        {"category": "stock_cn"},      # 旧数据结构
-                        {"market": {"$in": ["主板", "创业板", "科创板", "北交所"]}}  # 按市场类型
-                    ]
+                    "market": market,
+                    "status": "Active" # 假设 Active 为正常状态
                 },
                 {"code": 1, "_id": 0}
             )
 
             # 同步获取所有股票代码
             codes = [doc.get("code") for doc in cursor if doc.get("code")]
+            print(f"DEBUG: _get_universe found {len(codes)} codes: {codes[:5]}...")
 
             if codes:
-                logger.info(f"📊 从 MongoDB 获取到 {len(codes)} 只A股股票")
+                logger.info(f"📊 从 MongoDB (Global) 获取到 {len(codes)} 只 {market} 股票")
                 return codes
             else:
-                # 如果数据库为空，返回常见股票代码作为兜底
-                logger.warning("⚠️ MongoDB 中未找到股票数据，使用兜底股票列表")
-                return ["000001", "000002", "000858", "600519", "600036", "601318", "300750"]
-
+                # 尝试查旧集合作为 fallback? 或者是 global 集合还没数据?
+                # 假设 global 集合应该有数据。
+                logger.warning(f"⚠️ MongoDB (Global) 中未找到 {market} 股票数据，返回空列表")
+                return []
+                
         except Exception as e:
             logger.error(f"❌ 从 MongoDB 获取股票列表失败: {e}")
-            # 异常时返回常见股票代码作为兜底
-            return ["000001", "000002", "000858", "600519", "600036", "601318", "300750"]
+            return []
 

@@ -17,6 +17,7 @@ class StockMarket(Enum):
     CHINA_A = "china_a"      # 中国A股
     HONG_KONG = "hong_kong"  # 港股
     US = "us"                # 美股
+    TAIWAN = "taiwan"        # 台湾股市
     UNKNOWN = "unknown"      # 未知
 
 
@@ -42,6 +43,10 @@ class StockUtils:
         # 中国A股：6位数字
         if re.match(r'^\d{6}$', ticker):
             return StockMarket.CHINA_A
+
+        # 台湾股市：4位数字 (简单判断，可能会误判，但在上下文明确时通常准确)
+        if re.match(r'^\d{4}$', ticker):
+            return StockMarket.TAIWAN
 
         # 港股：4-5位数字.HK 或 纯4-5位数字（支持0700.HK、09988.HK、00700、9988格式）
         if re.match(r'^\d{4,5}\.HK$', ticker) or re.match(r'^\d{4,5}$', ticker):

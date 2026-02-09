@@ -1,0 +1,13 @@
+DEBUG: Toolkit.get_stock_market_data_unified type: <class 'function'>
+DEBUG: Is MagicMock? False
+DEBUG: Result type: <class 'str'>
+DEBUG: Result value: ## A股市场数据 (600519)
+最新日期: 2023-10-27
+最新收盘价: 1630.00
+涨跌幅: 1.50%
+成交量: 10000
+
+### 最近5个交易日数据
+| 日期 | 开盘 | 最高 | 最低 | 收盘 | 涨跌幅 |
+|---|---|---|---|---|---|
+| 2023-10-27 | 1600.00 | 1650.00 | 1590.00 | 1630.00 | 1.50% |

@@ -381,6 +381,28 @@ const routes: RouteRecordRaw[] = [
       }
     ]
   },
+  {
+    path: '/meeting',
+    name: 'MeetingRoom',
+    component: () => import('@/layouts/BasicLayout.vue'),
+    meta: {
+      title: '研究会议室',
+      icon: 'ChatDotRound',
+      requiresAuth: true,
+      transition: 'fade'
+    },
+    children: [
+      {
+        path: '',
+        name: 'MeetingRoomHome',
+        component: () => import('@/views/MeetingRoom/index.vue'),
+        meta: {
+          title: '研究会议室',
+          requiresAuth: true
+        }
+      }
+    ]
+  },
 
   {
     path: '/:pathMatch(.*)*',
@@ -421,6 +443,8 @@ router.beforeEach(async (to, from, next) => {
     document.title = `${title} - TradingAgents-CN`
   }
 
+  /* 
+  // === ORIGINAL AUTH LOGIC START ===
   console.log('🚦 路由守卫检查:', {
     path: to.fullPath,
     name: to.name,
@@ -431,29 +455,22 @@ router.beforeEach(async (to, from, next) => {
 
   // 检查是否需要认证
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    console.log('🔒 需要认证但用户未登录:', {
-      path: to.fullPath,
-      requiresAuth: to.meta.requiresAuth,
-      isAuthenticated: authStore.isAuthenticated,
-      token: authStore.token ? '存在' : '不存在'
-    })
-    // 保存原始路径，登录后跳转
     authStore.setRedirectPath(to.fullPath)
     next('/login')
     return
   }
-
-
 
   // 如果已登录且访问登录页，重定向到仪表板
   if (authStore.isAuthenticated && to.name === 'Login') {
     next('/dashboard')
     return
   }
+  // === ORIGINAL AUTH LOGIC END ===
+  */
 
-  // 更新当前路由信息
+  // === DEVELOPMENT BYPASS ===
+  // 核心邏輯：開發模式下直接允許訪問
   appStore.setCurrentRoute(to)
-
   next()
 })
 

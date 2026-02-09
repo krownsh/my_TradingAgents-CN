@@ -65,9 +65,15 @@ class EnhancedScreeningService:
             analysis = self._analyze_conditions(conditions)
 
             # 决定使用哪种筛选方式
-            if (use_database_optimization and
+            # DatabaseScreeningService 目前仅支持 CN 市场
+            can_use_db = (
+                use_database_optimization and
                 analysis["can_use_database"] and
-                not analysis["needs_technical_indicators"]):
+                not analysis["needs_technical_indicators"] and
+                market == "CN"
+            )
+
+            if can_use_db:
 
                 # 使用数据库优化筛选
                 result = await self._screen_with_database(

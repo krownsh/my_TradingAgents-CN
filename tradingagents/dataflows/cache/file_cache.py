@@ -38,11 +38,15 @@ class StockDataCache:
 
         # 创建子目录 - 按市场分类
         self.us_stock_dir = self.cache_dir / "us_stocks"
+        self.us_stock_dir = self.cache_dir / "us_stocks"
         self.china_stock_dir = self.cache_dir / "china_stocks"
+        self.tw_stock_dir = self.cache_dir / "tw_stocks" # Added TW dir
         self.us_news_dir = self.cache_dir / "us_news"
         self.china_news_dir = self.cache_dir / "china_news"
         self.us_fundamentals_dir = self.cache_dir / "us_fundamentals"
+        self.us_fundamentals_dir = self.cache_dir / "us_fundamentals"
         self.china_fundamentals_dir = self.cache_dir / "china_fundamentals"
+        self.tw_fundamentals_dir = self.cache_dir / "tw_fundamentals" # Added TW dir
         self.metadata_dir = self.cache_dir / "metadata"
 
         # 创建所有目录
@@ -63,6 +67,11 @@ class StockDataCache:
                 'max_files': 1000,
                 'description': 'A股历史数据'
             },
+            'tw_stock_data': {
+                'ttl_hours': 2,
+                'max_files': 1000,
+                'description': '台股历史数据'
+            },
             'us_news': {
                 'ttl_hours': 6,  # 美股新闻缓存6小时
                 'max_files': 500,
@@ -82,6 +91,11 @@ class StockDataCache:
                 'ttl_hours': 12,  # A股基本面数据缓存12小时
                 'max_files': 200,
                 'description': 'A股基本面数据'
+            },
+            'tw_fundamentals': {
+                'ttl_hours': 24,
+                'max_files': 200,
+                'description': '台股基本面数据'
             }
         }
 
@@ -97,13 +111,27 @@ class StockDataCache:
         logger.info(f"   美股数据: ✅ 已配置")
         logger.info(f"   A股数据: ✅ 已配置")
 
-    def _determine_market_type(self, symbol: str) -> str:
+    def _determine_market_type(self, symbol: Union[str, Any]) -> str:
         """根据股票代码确定市场类型"""
+        # If it's a SymbolKey (checking by duck typing or attribute)
+        if hasattr(symbol, 'market'):
+             from tradingagents.models.core import MarketType
+             if symbol.market == MarketType.CN:
+                 return 'china'
+             elif symbol.market == MarketType.US:
+                 return 'us'
+             elif symbol.market == MarketType.TW:
+                 return 'tw'
+        
         import re
+        s_symbol = str(symbol)
 
         # 判断是否为中国A股（6位数字）
-        if re.match(r'^\d{6}$', str(symbol)):
+        if re.match(r'^\d{6}$', s_symbol):
             return 'china'
+        # 台股 4位数字
+        elif re.match(r'^\d{4}$', s_symbol):
+            return 'tw'
         else:
             return 'us'
 
@@ -194,11 +222,21 @@ class StockDataCache:
 
         # 根据数据类型和市场类型选择目录
         if data_type == "stock_data":
-            base_dir = self.china_stock_dir if market_type == 'china' else self.us_stock_dir
+            if market_type == 'china':
+                base_dir = self.china_stock_dir
+            elif market_type == 'tw':
+                base_dir = self.tw_stock_dir
+            else:
+                base_dir = self.us_stock_dir
         elif data_type == "news":
             base_dir = self.china_news_dir if market_type == 'china' else self.us_news_dir
         elif data_type == "fundamentals":
-            base_dir = self.china_fundamentals_dir if market_type == 'china' else self.us_fundamentals_dir
+            if market_type == 'china':
+                base_dir = self.china_fundamentals_dir
+            elif market_type == 'tw':
+                base_dir = self.tw_fundamentals_dir
+            else:
+                base_dir = self.us_fundamentals_dir
         else:
             base_dir = self.cache_dir
 

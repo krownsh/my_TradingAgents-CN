@@ -14,6 +14,7 @@ logger = get_logger('agents')
 
 # 导入配置
 from tradingagents.config.runtime_settings import use_app_cache_enabled
+from tradingagents.models.core import SymbolKey, MarketType
 
 class MongoDBCacheAdapter:
     """MongoDB 缓存适配器（从 app 的 MongoDB 读取同步数据）"""
@@ -44,13 +45,32 @@ class MongoDBCacheAdapter:
             logger.warning(f"⚠️ MongoDB连接初始化失败: {e}")
             self.use_app_cache = False
     
-    def get_stock_basic_info(self, symbol: str) -> Optional[Dict[str, Any]]:
+    def get_stock_basic_info(self, symbol: Union[str, SymbolKey]) -> Optional[Dict[str, Any]]:
         """获取股票基础信息（按数据源优先级查询）"""
         if not self.use_app_cache or self.db is None:
             return None
 
         try:
-            code6 = str(symbol).zfill(6)
+            # Handle SymbolKey - Check Global Collection First
+            if isinstance(symbol, SymbolKey):
+                code = symbol.code
+                market = symbol.market
+                
+                # Check Global Collection
+                global_col = self.db.stock_basic_info_global
+                doc = global_col.find_one({"code": code, "market": market}, {"_id": 0})
+                if doc:
+                    logger.debug(f"✅ 从MongoDB(Global)获取基础信息: {symbol}")
+                    return doc
+                     
+                # Fallback to legacy check if not found in global
+            else:
+                code = str(symbol)
+                # Legacy behavior: zfill 6 for potential CN stocks if numeric
+                if code.isdigit() and len(code) <= 6 and len(code) != 4: 
+                     code = code.zfill(6)
+            
+            # Legacy Path
             collection = self.db.stock_basic_info
 
             # 🔥 获取数据源优先级
@@ -59,14 +79,14 @@ class MongoDBCacheAdapter:
             # 🔥 按优先级查询
             doc = None
             for src in source_priority:
-                doc = collection.find_one({"code": code6, "source": src}, {"_id": 0})
+                doc = collection.find_one({"code": code, "source": src}, {"_id": 0})
                 if doc:
                     logger.debug(f"✅ 从MongoDB获取基础信息: {symbol}, 数据源: {src}")
                     return doc
 
             # 如果所有数据源都没有，尝试不带 source 条件查询（兼容旧数据）
             if not doc:
-                doc = collection.find_one({"code": code6}, {"_id": 0})
+                doc = collection.find_one({"code": code}, {"_id": 0})
                 if doc:
                     logger.debug(f"✅ 从MongoDB获取基础信息（旧数据）: {symbol}")
                     return doc
@@ -78,7 +98,7 @@ class MongoDBCacheAdapter:
             logger.warning(f"⚠️ 获取基础信息失败: {e}")
             return None
     
-    def _get_data_source_priority(self, symbol: str) -> list:
+    def _get_data_source_priority(self, symbol: Union[str, SymbolKey]) -> list:
         """
         获取数据源优先级顺序
 
@@ -89,17 +109,32 @@ class MongoDBCacheAdapter:
             按优先级排序的数据源列表，例如: ["tushare", "akshare", "baostock"]
         """
         try:
-            # 1. 识别市场分类
-            from tradingagents.utils.stock_utils import StockUtils, StockMarket
-            market = StockUtils.identify_stock_market(symbol)
+            market_category = None
+            if isinstance(symbol, SymbolKey):
+                # Map MarketType to legacy config category
+                market_mapping_enum = {
+                    MarketType.CN: 'a_shares',
+                    MarketType.US: 'us_stocks',
+                    MarketType.HK: 'hk_stocks',
+                    MarketType.TW: 'tw_stocks',
+                }
+                market_category = market_mapping_enum.get(symbol.market)
+                symbol_str = symbol.code
+            else:
+                symbol_str = str(symbol)
+                # 1. 识别市场分类
+                from tradingagents.utils.stock_utils import StockUtils, StockMarket
+                market = StockUtils.identify_stock_market(symbol_str)
 
-            market_mapping = {
-                StockMarket.CHINA_A: 'a_shares',
-                StockMarket.US: 'us_stocks',
-                StockMarket.HONG_KONG: 'hk_stocks',
-            }
-            market_category = market_mapping.get(market)
-            logger.info(f"📊 [数据源优先级] 股票代码: {symbol}, 市场分类: {market_category}")
+                market_mapping = {
+                    StockMarket.CHINA_A: 'a_shares',
+                    StockMarket.US: 'us_stocks',
+                    StockMarket.HONG_KONG: 'hk_stocks',
+                    StockMarket.TAIWAN: 'tw_stocks', 
+                }
+                market_category = market_mapping.get(market)
+            
+            logger.info(f"📊 [数据源优先级] 股票代码: {symbol_str}, 市场分类: {market_category}")
 
             # 2. 从数据库读取配置
             if self.db is not None:
@@ -157,49 +192,66 @@ class MongoDBCacheAdapter:
         logger.info(f"📊 [数据源优先级] 使用默认顺序: ['tushare', 'akshare', 'baostock']")
         return ['tushare', 'akshare', 'baostock']
 
-    def get_historical_data(self, symbol: str, start_date: str = None, end_date: str = None,
+    def get_historical_data(self, symbol: Union[str, SymbolKey], start_date: str = None, end_date: str = None,
                           period: str = "daily") -> Optional[pd.DataFrame]:
         """
         获取历史数据，支持多周期，按数据源优先级查询
-
+        
         Args:
-            symbol: 股票代码
-            start_date: 开始日期
-            end_date: 结束日期
-            period: 数据周期（daily/weekly/monthly），默认为daily
-
-        Returns:
-            DataFrame: 历史数据
+            symbol: 股票代码 或者 SymbolKey
+            start_date: 开始日期 (YYYY-MM-DD)
+            end_date: 结束日期 (YYYY-MM-DD)
+            period: 数据周期
         """
         if not self.use_app_cache or self.db is None:
             return None
 
         try:
-            code6 = str(symbol).zfill(6)
+            market_val = None
+            if isinstance(symbol, SymbolKey):
+                code = symbol.code
+                market_val = symbol.market
+            else:
+                code = str(symbol)
+                if code.isdigit() and len(code) <= 6 and len(code) != 4:
+                    code = code.zfill(6)
+
             collection = self.db.stock_daily_quotes
 
             # 获取数据源优先级
             priority_order = self._get_data_source_priority(symbol)
+            if 'unified' not in priority_order:
+                # Add 'unified' or 'provider' as high priority if checking market aware sources
+                priority_order.insert(0, 'unified') 
 
             # 按优先级查询
             for data_source in priority_order:
                 # 构建查询条件
                 query = {
-                    "symbol": code6,
+                    "symbol": code,
                     "period": period,
                     "data_source": data_source  # 指定数据源
                 }
+                
+                # If market is known, strictly filter by it to avoid code collision
+                if market_val:
+                    query["market"] = market_val
 
                 if start_date:
                     query["trade_date"] = {"$gte": start_date}
                 if end_date:
                     if "trade_date" in query:
-                        query["trade_date"]["$lte"] = end_date
+                        # Merge dictionaries if both gte and lte
+                        if isinstance(query["trade_date"], dict):
+                            query["trade_date"]["$lte"] = end_date
+                        else:
+                            # This overwrites if it was not a dict (unlikely here)
+                            query["trade_date"] = {"$lte": end_date}
                     else:
                         query["trade_date"] = {"$lte": end_date}
 
                 # 查询数据
-                logger.debug(f"🔍 [MongoDB查询] 尝试数据源: {data_source}, symbol={code6}, period={period}")
+                logger.debug(f"🔍 [MongoDB查询] 尝试数据源: {data_source}, symbol={code}, period={period}")
                 cursor = collection.find(query, {"_id": 0}).sort("trade_date", 1)
                 data = list(cursor)
 
@@ -224,7 +276,13 @@ class MongoDBCacheAdapter:
             return None
 
         try:
-            code6 = str(symbol).zfill(6)
+            if isinstance(symbol, SymbolKey):
+                code = symbol.code
+            else:
+                code = str(symbol)
+                if code.isdigit() and len(code) <= 6 and len(code) != 4:
+                     code = code.zfill(6)
+
             collection = self.db.stock_financial_data
 
             # 获取数据源优先级
@@ -234,7 +292,7 @@ class MongoDBCacheAdapter:
             for data_source in priority_order:
                 # 构建查询条件
                 query = {
-                    "code": code6,
+                    "code": code,
                     "data_source": data_source  # 指定数据源
                 }
                 if report_period:
@@ -324,13 +382,29 @@ class MongoDBCacheAdapter:
             logger.warning(f"⚠️ 获取社媒数据失败: {e}")
             return None
     
-    def get_market_quotes(self, symbol: str) -> Optional[Dict[str, Any]]:
+    def get_market_quotes(self, symbol: Union[str, SymbolKey]) -> Optional[Dict[str, Any]]:
         """获取实时行情数据"""
         if not self.use_app_cache or self.db is None:
             return None
             
         try:
-            code6 = str(symbol).zfill(6)
+            market_val = None
+            if isinstance(symbol, SymbolKey):
+                code = symbol.code
+                market_val = symbol.market
+                # Check Global Quotes First
+                global_col = self.db.market_quotes_global
+                doc = global_col.find_one({"symbol": code, "market": market_val}, {"_id": 0})
+                if doc:
+                    logger.debug(f"✅ 从MongoDB(Global)获取行情数据: {symbol}")
+                    return doc
+            else:
+                code = str(symbol)
+                if code.isdigit() and len(code) <= 6 and len(code) != 4:
+                    code = code.zfill(6) # Legacy zfill for string
+
+            # Legacy Fallback
+            code6 = str(code).zfill(6) # Legacy expects 6 digits usually
             collection = self.db.market_quotes
             
             # 获取最新行情

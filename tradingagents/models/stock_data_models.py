@@ -15,12 +15,8 @@ from enum import Enum
 from tradingagents.utils.logging_manager import get_logger
 logger = get_logger('agents')
 
-
-class MarketType(str, Enum):
-    """市场类型枚举"""
-    CN = "CN"  # 中国A股
-    HK = "HK"  # 港股
-    US = "US"  # 美股
+# 从 core 导入基础类型
+from .core import MarketType
 
 
 class StockStatus(str, Enum):
@@ -28,12 +24,15 @@ class StockStatus(str, Enum):
     LISTED = "L"      # 上市
     DELISTED = "D"    # 退市
     SUSPENDED = "P"   # 暂停上市
+    HALTED = "H"      # 停牌 (通用)
 
 
 class ReportType(str, Enum):
     """报告类型枚举"""
     ANNUAL = "annual"      # 年报
-    QUARTERLY = "quarterly" # 季报
+    QUARTERLY = "quarterly" # 季报 (Q1, Q2, Q3)
+    INTERIM = "interim"    # 中报 (Q2)
+    TTM = "ttm"            # 滚动12个月
 
 
 class NewsCategory(str, Enum):
@@ -42,6 +41,7 @@ class NewsCategory(str, Enum):
     INDUSTRY_NEWS = "industry_news"               # 行业新闻
     MARKET_NEWS = "market_news"                   # 市场新闻
     RESEARCH_REPORT = "research_report"           # 研究报告
+    MACRO_ECONOMY = "macro_economy"               # 宏观经济
 
 
 class SentimentType(str, Enum):
@@ -69,7 +69,7 @@ class BaseStockModel(BaseModel):
 
 class StockBasicInfo(BaseStockModel):
     """股票基础信息模型"""
-    symbol: str = Field(..., description="标准化股票代码", regex=r"^\d{6}$")
+    symbol: str = Field(..., description="标准化股票代码")  # 移除 regex，支援 US/TW 代码
     exchange_symbol: str = Field(..., description="交易所完整代码")
     name: str = Field(..., description="股票名称")
     name_en: Optional[str] = Field(None, description="英文名称")
@@ -78,7 +78,7 @@ class StockBasicInfo(BaseStockModel):
     industry: str = Field(..., description="行业")
     industry_code: Optional[str] = Field(None, description="行业代码")
     sector: str = Field(..., description="所属板块")
-    list_date: date = Field(..., description="上市日期")
+    list_date: Optional[date] = Field(None, description="上市日期")
     delist_date: Optional[date] = Field(None, description="退市日期")
     area: str = Field(..., description="所在地区")
     market_cap: Optional[float] = Field(None, description="总市值")
@@ -91,8 +91,9 @@ class StockBasicInfo(BaseStockModel):
 
     @validator('symbol')
     def validate_symbol(cls, v):
-        if not v.isdigit() or len(v) != 6:
-            raise ValueError('股票代码必须是6位数字')
+        # 移除 6 位数字校验，只确保非空
+        if not v:
+            raise ValueError('股票代码不能为空')
         return v
 
 
@@ -196,7 +197,7 @@ class FinancialIndicators(BaseModel):
 class StockFinancialData(BaseStockModel):
     """股票财务数据模型"""
     symbol: str = Field(..., description="股票代码")
-    report_period: str = Field(..., description="报告期", regex=r"^\d{8}$")
+    report_period: str = Field(..., description="报告期", pattern=r"^\d{8}$")
     report_type: ReportType = Field(..., description="报告类型")
     ann_date: date = Field(..., description="公告日期")
     f_ann_date: Optional[date] = Field(None, description="实际公告日期")

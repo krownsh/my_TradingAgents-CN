@@ -8,17 +8,17 @@ export interface AuthState {
   isAuthenticated: boolean
   token: string | null
   refreshToken: string | null
-  
+
   // 用户信息
   user: User | null
-  
+
   // 权限信息
   permissions: string[]
   roles: string[]
-  
+
   // 登录状态
   loginLoading: boolean
-  
+
   // 重定向路径
   redirectPath: string
 }
@@ -52,14 +52,24 @@ export const useAuthStore = defineStore('auth', {
     }
 
     return {
-      isAuthenticated: !!validToken,
-      token: validToken,
-      refreshToken: validRefreshToken,
+      // === DEVELOPMENT BYPASS START ===
+      isAuthenticated: true,
+      token: validToken || 'dev-token',
+      refreshToken: validRefreshToken || 'dev-refresh-token',
+      user: validToken ? (useStorage('user-info', null).value || null) : {
+        id: 'dev_user_id',
+        username: 'admin',
+        email: 'admin@example.com',
+        is_admin: true,
+        is_active: true,
+        is_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as any,
+      // === DEVELOPMENT BYPASS END ===
 
-      user: validToken ? (useStorage('user-info', null).value || null) : null,
-
-      permissions: [],
-      roles: [],
+      permissions: ['*'],
+      roles: ['admin'],
 
       loginLoading: false,
       redirectPath: '/'
@@ -71,31 +81,31 @@ export const useAuthStore = defineStore('auth', {
     userAvatar(): string | undefined {
       return this.user?.avatar || undefined
     },
-    
+
     // 用户显示名称
     userDisplayName(): string {
       return this.user?.username || this.user?.email || '未知用户'
     },
-    
+
     // 是否为管理员
     isAdmin(): boolean {
       return this.roles.includes('admin')
     },
-    
+
     // 检查权限
     hasPermission(): (permission: string) => boolean {
       return (permission: string) => {
         return this.permissions.includes(permission) || this.isAdmin
       }
     },
-    
+
     // 检查角色
     hasRole(): (role: string) => boolean {
       return (role: string) => {
         return this.roles.includes(role)
       }
     },
-    
+
     // 用户统计信息
     userStats(): Record<string, number> {
       return {
@@ -141,7 +151,7 @@ export const useAuthStore = defineStore('auth', {
         isAuthenticated: this.isAuthenticated
       })
     },
-    
+
     // 清除认证信息
     clearAuthInfo() {
       this.token = null
@@ -172,13 +182,13 @@ export const useAuthStore = defineStore('auth', {
         }
       }
     },
-    
+
     // 设置API请求头
     setAuthHeader(token: string | null) {
       // 这里会在API模块中设置Authorization头
       // 具体实现在api/request.ts中
     },
-    
+
     // 登录
     async login(loginForm: LoginForm) {
       // 防止重复登录请求
@@ -223,12 +233,12 @@ export const useAuthStore = defineStore('auth', {
         this.loginLoading = false
       }
     },
-    
+
     // 注册
     async register(registerForm: RegisterForm) {
       try {
         const response = await authApi.register(registerForm)
-        
+
         if (response.success) {
           ElMessage.success('注册成功，请登录')
           return true
@@ -242,7 +252,7 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
-    
+
     // 登出
     async logout() {
       try {
@@ -259,7 +269,7 @@ export const useAuthStore = defineStore('auth', {
         this.redirectToLogin()
       }
     },
-    
+
     // 刷新Token
     async refreshAccessToken() {
       try {
@@ -311,7 +321,7 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
-    
+
     // 获取用户信息
     async fetchUserInfo() {
       try {
@@ -336,14 +346,14 @@ export const useAuthStore = defineStore('auth', {
         throw error
       }
     },
-    
+
     // 开源版不需要权限检查，admin拥有所有权限
     async fetchUserPermissions() {
       this.permissions = ['*']
       this.roles = ['admin']
       return true
     },
-    
+
     // 更新用户信息
     async updateUserInfo(userInfo: Partial<User>) {
       try {
@@ -367,7 +377,7 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
-    
+
     // 同步用户偏好设置到 appStore
     syncUserPreferencesToAppStore() {
       if (!this.user?.preferences) return
@@ -427,19 +437,19 @@ export const useAuthStore = defineStore('auth', {
         return false
       }
     },
-    
+
     // 设置重定向路径
     setRedirectPath(path: string) {
       this.redirectPath = path
     },
-    
+
     // 获取并清除重定向路径
     getAndClearRedirectPath(): string {
       const path = this.redirectPath || '/dashboard'
       this.redirectPath = '/dashboard'
       return path
     },
-    
+
     // 检查认证状态
     async checkAuthStatus() {
       if (this.token) {

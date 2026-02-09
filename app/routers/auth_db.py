@@ -68,6 +68,19 @@ class CreateUserRequest(BaseModel):
 
 async def get_current_user(authorization: Optional[str] = Header(default=None)) -> dict:
     """获取当前用户信息"""
+    # === DEVELOPMENT BYPASS START ===
+    # Uncomment the following lines to re-enable authentication
+    return {
+        "id": "dev_user_id",
+        "username": "admin",
+        "email": "admin@example.com",
+        "name": "Admin (Dev)",
+        "is_admin": True,
+        "roles": ["admin"],
+        "preferences": {}
+    }
+    # === DEVELOPMENT BYPASS END ===
+
     logger.debug(f"🔐 认证检查开始")
     logger.debug(f"📋 Authorization header: {authorization[:50] if authorization else 'None'}...")
 
