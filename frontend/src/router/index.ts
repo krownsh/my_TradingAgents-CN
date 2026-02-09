@@ -180,6 +180,28 @@ const routes: RouteRecordRaw[] = [
     ]
   },
 
+  {
+    path: '/daily-analysis',
+    name: 'DailyAnalysis',
+    component: () => import('@/layouts/BasicLayout.vue'),
+    meta: {
+      title: '每日分析',
+      icon: 'TrendCharts',
+      requiresAuth: true,
+      transition: 'fade'
+    },
+    children: [
+      {
+        path: '',
+        name: 'DailyAnalysisHome',
+        component: () => import('@/views/DailyAnalysis/index.vue'),
+        meta: {
+          title: '每日股票分析',
+          requiresAuth: true
+        }
+      }
+    ]
+  },
 
   {
     path: '/tasks',

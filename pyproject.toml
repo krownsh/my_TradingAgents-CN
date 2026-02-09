@@ -41,6 +41,8 @@ dependencies = [
     "backtrader>=1.9.78.123",
     "baostock>=0.8.8",
     "eodhd>=1.0.32",
+    "efinance>=0.5.5",  # 東方財富數據源 (daily_analysis)
+    "FinMind>=1.5.0",  # 台灣市場數據源 (daily_analysis)
     "finnhub-python>=2.4.23",
     "tushare>=1.4.21",
     "yfinance>=0.2.63",
@@ -50,12 +52,15 @@ dependencies = [
     "chainlit>=2.5.5",
     "chromadb>=1.0.12",
     "dashscope>=1.20.0",
+    "google-generativeai>=0.8.0",  # Gemini API (daily_analysis)
     "langchain-anthropic>=0.3.15",
     "langchain-experimental>=0.3.4",
     "langchain-google-genai>=2.1.12",  # 修复 client_options 未定义错误
     "langchain-openai>=0.3.23",
     "langgraph>=0.4.8",
     "openai>=1.0.0,<2.0.0",
+    "tavily-python>=0.3.0",  # Tavily 搜索 API (daily_analysis)
+    "google-search-results>=2.4.0",  # SerpAPI (daily_analysis)
 
     # 数据处理和分析
     "pandas>=2.3.0",
@@ -63,25 +68,35 @@ dependencies = [
 
     # 网络爬虫和解析
     "curl-cffi>=0.6.0",  # 模拟真实浏览器TLS指纹，绕过反爬虫检测
+    "fake-useragent>=1.4.0",  # 隨機 User-Agent (daily_analysis)
     "feedparser>=6.0.11",
+    "newspaper3k>=0.2.8",  # 文章提取 (daily_analysis)
+    "lxml_html_clean",  # 修復 lxml ImportError (daily_analysis)
     "parsel>=1.10.0",
     "praw>=7.8.1",
     "requests>=2.32.4",
 
     # 文档和格式化
+    "json-repair>=0.55.1",  # JSON 修復 (daily_analysis)
     "markdown>=3.4.0",
+    "markdown2>=2.4.0",  # Markdown 轉 HTML (daily_analysis)
     "pypandoc>=1.11",
     "python-docx>=0.8.11",  # Word文档处理，用于修复文本方向
     "pdfkit>=1.0.0",  # PDF生成工具，需要wkhtmltopdf
 
     # 工具和辅助
+    "dingtalk-stream>=0.24.3",  # 釘釘 Stream SDK (daily_analysis Bot - 暫不使用)
+    "discord.py>=2.0.0",  # Discord 機器人 (daily_analysis Bot - 暫不使用)
+    "lark-oapi>=1.0.0",  # 飛書 API (daily_analysis)
     "psutil>=6.1.0",
     "python-dotenv>=1.0.0",
     "pytz>=2025.2",
     "questionary>=2.1.0",
     "rich>=14.0.0",
+    "schedule>=1.2.0",  # 定時任務調度 (daily_analysis)
     "setuptools>=80.9.0",
     "streamlit>=1.28.0",
+    "tenacity>=8.2.0",  # 重試機制 (daily_analysis)
     "toml>=0.10.2",
     "tqdm>=4.67.1",
     "typing-extensions>=4.14.0",

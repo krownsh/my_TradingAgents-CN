@@ -27,6 +27,12 @@
       <el-menu-item index="/reports">分析报告</el-menu-item>
     </el-sub-menu>
 
+    <!-- JCP 研究會議室 -->
+    <el-menu-item index="/meeting">
+      <el-icon><ChatLineRound /></el-icon>
+      <template #title>研究會議室</template>
+    </el-menu-item>
+
     <el-menu-item index="/tasks">
       <el-icon><List /></el-icon>
       <template #title>任务中心</template>
@@ -109,6 +115,7 @@ import {
   Search,
   Star,
   List,
+  ChatLineRound,
   /* Document 移除：不再使用顶级分析报告菜单图标 */
   Setting,
   InfoFilled,

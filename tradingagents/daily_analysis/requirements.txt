@@ -1,0 +1,33 @@
+# ===================================
+# Daily Stock Analysis Module - Additional Dependencies
+# 這些是 daily_analysis 模組額外需要的依賴
+# 請合併到主專案的 requirements.txt 或 pyproject.toml
+# ===================================
+
+# 核心依賴（daily_analysis 特有）
+tenacity>=8.2.0             # 重試機制（指數退避）
+schedule>=1.2.0             # 定時任務調度
+
+# 數據源依賴（東方財富優先）
+efinance>=0.5.5             # 東方財富數據源（最高優先級）
+FinMind>=1.5.0              # 台灣市場專業數據源
+
+# 飛書 API
+lark-oapi>=1.0.0            # 飛書 API
+
+# 數據處理
+json-repair>=0.55.1         # JSON 修復
+markdown2>=2.4.0            # Markdown 轉 HTML（報告生成）
+fake-useragent>=1.4.0       # 隨機 User-Agent 防封禁
+
+# AI 搜索引擎（用於獲取股票新聞）
+tavily-python>=0.3.0        # Tavily 搜索 API
+google-search-results>=2.4.0  # SerpAPI
+
+# Bot 平台（當前暫不使用，但保留依賴）
+dingtalk-stream>=0.24.3     # 釘釘 Stream SDK
+discord.py>=2.0.0           # Discord 機器人開發庫
+
+# Web Content Extraction
+newspaper3k>=0.2.8          # 文章提取
+lxml_html_clean             # 修復 lxml.html.clean ImportError

@@ -28,9 +28,10 @@
         <MeetingChat />
       </div>
 
-      <!-- Right: Agent Status / Tools -->
-      <div class="agent-status-panel">
-        <AgentStatus />
+      <!-- Right: Research Plan + Agent Status -->
+      <div class="right-panel">
+        <ResearchPlanPanel class="research-section" />
+        <AgentStatus class="agent-section" />
       </div>
     </div>
   </div>
@@ -41,6 +42,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMeetingStore } from '@/stores/meeting'
 import MeetingChat from './components/MeetingChat.vue'
 import AgentStatus from './components/AgentStatus.vue'
+import ResearchPlanPanel from './components/ResearchPlanPanel.vue'
 import { useAppStore } from '@/stores/app'
 
 const meetingStore = useMeetingStore()
@@ -131,10 +133,24 @@ onUnmounted(() => {
   height: 100%;
 }
 
-.agent-status-panel {
-  width: 280px;
+.right-panel {
+  width: 340px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   height: 100%;
+  
+  .research-section {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  
+  .agent-section {
+    height: 280px;
+    flex-shrink: 0;
+  }
 }
 
 .stock-info {
