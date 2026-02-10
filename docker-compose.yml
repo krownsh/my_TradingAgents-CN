@@ -31,10 +31,6 @@ services:
       TRADINGAGENTS_LOG_DIR: "/app/logs"
       TRADINGAGENTS_LOG_FILE: "/app/logs/tradingagents.log"
       # 核心 API 配置由 .env 自動載入
-      - GOOGLE_GEMINI_API_KEY
-      - TAVILY_API_KEY
-      - TUSHARE_TOKEN
-      - STOCK_LIST
     depends_on:
       mongodb:
         condition: service_healthy

@@ -7,7 +7,7 @@
           <template #header>
             <div class="card-header">
               <span>自選股票</span>
-              <el-button size="small" @click="refresh ConfigStocks">
+              <el-button size="small" @click="refreshConfigStocks">
                 <el-icon><Refresh /></el-icon>
                 刷新
               </el-button>
