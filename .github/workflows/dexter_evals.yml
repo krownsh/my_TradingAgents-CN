@@ -1,0 +1,47 @@
+name: Dexter Research Evals
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest motor pymongo pydantic-settings
+
+    - name: Run Dexter Evaluations
+      env:
+        MONGODB_CONNECTION_STRING: mongodb://localhost:27017
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        TRADING_ENV: ci
+      run: |
+        # 執行評測跑車
+        python -m tests.dexter_evals.runner
+        
+    - name: Upload Eval Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: dexter-eval-reports
+        path: tests/dexter_evals/reports/

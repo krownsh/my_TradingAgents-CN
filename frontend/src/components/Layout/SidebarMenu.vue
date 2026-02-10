@@ -11,10 +11,6 @@
       <template #title>仪表板</template>
     </el-menu-item>
 
-    <el-menu-item index="/learning">
-      <el-icon><Reading /></el-icon>
-      <template #title>学习中心</template>
-    </el-menu-item>
 
     <el-sub-menu index="/analysis">
       <template #title>
@@ -110,7 +106,6 @@ import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import {
   Odometer,
-  Reading,
   TrendCharts,
   Search,
   Star,

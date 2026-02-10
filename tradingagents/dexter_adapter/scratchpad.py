@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 
 from .schemas import ResearchPlan, DexterToolOutput
+from .repository import ResearchRepository
+from tradingagents.models.research import ResearchEvent, ResearchSessionSummary
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +30,14 @@ class DexterScratchpad:
     4. 上下文管理（超過限制時清理舊資料）
     """
     
-    def __init__(self, query: str, symbol_key: str):
+    def __init__(self, query: str, symbol_key: str, session_id: Optional[str] = None):
         self.query = query
         self.symbol_key = symbol_key
+        self.session_id = session_id or f"rex_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.created_at = datetime.now()
+        
+        # 初始化持久化 Repository
+        self.repository = ResearchRepository()
         
         # 儲存所有計畫（按執行順序）
         self.plans: List[Dict[str, Any]] = []
@@ -41,6 +47,9 @@ class DexterScratchpad:
         
         # 計畫計數器
         self.plan_counter = 0
+        
+        # 初始同步會話摘要
+        self._sync_session_summary()
         
     def add_plan(
         self, 
@@ -76,6 +85,9 @@ class DexterScratchpad:
         
         self.plans.append(plan_record)
         logger.info(f"📋 新增計畫 #{plan_id}: {plan.objective} (觸發: {trigger_reason})")
+        
+        # 同步至資料庫
+        self._sync_session_summary()
         
         return plan_id
     
@@ -114,6 +126,56 @@ class DexterScratchpad:
                     break
         
         logger.debug(f"   ✅ 記錄工具結果: {step_id}, 品質: {result.quality}")
+        
+        # 持久化事件
+        self._persist_event(step_id, result, plan_id)
+        # 更新摘要
+        self._sync_session_summary()
+    
+    def _persist_event(self, step_id: str, result: DexterToolOutput, plan_id: Optional[int]):
+        """將工具執行結果作為研究事件持久化"""
+        try:
+            # 尋找對應的參數 (從計畫中找)
+            args = {}
+            if plan_id:
+                for plan in self.plans:
+                    if plan["plan_id"] == plan_id:
+                        for step in plan["steps"]:
+                            if step["step_id"] == step_id:
+                                args = step.get("args_schema", {})
+                                break
+            
+            event = ResearchEvent(
+                event_id=step_id,
+                plan_id=plan_id or 0,
+                symbol_key=self.symbol_key,
+                tool_name=result.source_provider,
+                args=args,
+                data=result.data,
+                quality=result.quality,
+                source_provider=result.source_provider,
+                message=result.message,
+                timestamp=datetime.now(),
+                trigger_reason="execution"
+            )
+            self.repository.save_event(event)
+        except Exception as e:
+            logger.error(f"❌ 持久化 ResearchEvent 失敗: {e}")
+
+    def _sync_session_summary(self):
+        """同步會話狀態至資料庫"""
+        try:
+            summary = ResearchSessionSummary(
+                session_id=self.session_id,
+                symbol_key=self.symbol_key,
+                query=self.query,
+                plans=self.plans,
+                total_tools_called=len(self.tool_results),
+                updated_at=datetime.now()
+            )
+            self.repository.save_session_summary(summary)
+        except Exception as e:
+            logger.error(f"❌ 同步會話摘要失敗: {e}")
     
     def get_all_tool_results(self) -> Dict[str, DexterToolOutput]:
         """取得所有工具結果"""

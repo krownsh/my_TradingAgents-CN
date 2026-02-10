@@ -69,6 +69,14 @@ python -m streamlit run app.py
 4. **configurations** - 系统配置
    - 索引: (config_type, config_name), updated_at
 
+5. **research_events** - Dexter 研究工具執行事件 (Sprint 2)
+   - 索引: event_id (unique), (symbol_key, timestamp)
+   - 用途: 記錄 AI 研究過程中的每一筆數據抓取與發現
+
+6. **research_sessions** - Dexter 研究會話摘要 (Sprint 2)
+   - 索引: session_id (unique)
+   - 用途: 持久化存儲會議室的研究計畫與整體進度
+
 ### Redis缓存结构
 
 - **键前缀**: `tradingagents:`

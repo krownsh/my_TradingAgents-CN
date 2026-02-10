@@ -1,0 +1,90 @@
+{
+    "test_cases": [
+        {
+            "id": "US_001",
+            "market": "US",
+            "symbol_key": "US:AAPL",
+            "query": "分析 Apple 的最新季度毛利率趨勢，並與去年同期比較。",
+            "expected_tools": [
+                "market.fundamentals",
+                "market.bars"
+            ],
+            "target_data_points": [
+                "gross_margin",
+                "revenue"
+            ],
+            "difficulty": "medium"
+        },
+        {
+            "id": "US_002",
+            "market": "US",
+            "symbol_key": "US:TSLA",
+            "query": "特斯拉最近的一週市場情緒如何？主要的新聞驅動力是什麼？",
+            "expected_tools": [
+                "market.news",
+                "market.sentiment"
+            ],
+            "target_data_points": [
+                "sentiment_score",
+                "top_news_titles"
+            ],
+            "difficulty": "easy"
+        },
+        {
+            "id": "US_003",
+            "market": "US",
+            "symbol_key": "US:NVDA",
+            "query": "輝達目前的估值處於歷史什麼位置？請抓取 P/E 數據。",
+            "expected_tools": [
+                "market.fundamentals",
+                "market.quote"
+            ],
+            "target_data_points": [
+                "pe_ratio"
+            ],
+            "difficulty": "medium"
+        },
+        {
+            "id": "TW_001",
+            "market": "TW",
+            "symbol_key": "TW:2330",
+            "query": "台積電最近三個月的營收成長率分析。",
+            "expected_tools": [
+                "twse.monthly_revenue",
+                "market.bars"
+            ],
+            "target_data_points": [
+                "monthly_revenue_growth"
+            ],
+            "difficulty": "medium"
+        },
+        {
+            "id": "TW_002",
+            "market": "TW",
+            "symbol_key": "TW:2317",
+            "query": "鴻海目前的法人買賣超狀況如何？",
+            "expected_tools": [
+                "twse.institutional_trading"
+            ],
+            "target_data_points": [
+                "foreign_investment_buy_sell"
+            ],
+            "difficulty": "easy"
+        },
+        {
+            "id": "TW_003",
+            "market": "TW",
+            "symbol_key": "TW:2454",
+            "query": "聯發科的最新股利政策與殖利率計算。",
+            "expected_tools": [
+                "mops.announcements",
+                "market.quote"
+            ],
+            "target_data_points": [
+                "dividend_yield",
+                "cash_dividend"
+            ],
+            "difficulty": "hard"
+        }
+    ]
+}

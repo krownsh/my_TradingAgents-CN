@@ -20,6 +20,7 @@ from tradingagents.dexter_adapter.planner import DexterPlanner
 from tradingagents.dexter_adapter.schemas import ResearchPlan
 from tradingagents.dexter_adapter.scratchpad import DexterScratchpad
 from tradingagents.dexter_adapter import tools as dexter_tools
+from tradingagents.dexter_adapter.validator import DexterValidator
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,15 @@ class MeetingOrchestrator:
         # 初始化 Dexter Planner
         try:
             planner_llm = llm_factory("planner")
+            from tradingagents.dexter_adapter.planner import DexterPlanner
             self.planner = DexterPlanner(llm_client=planner_llm)
             logger.info("✅ Dexter Planner 初始化成功")
         except Exception as e:
-            logger.warning(f"⚠️ Dexter Planner 初始化失敗，將使用 fallback: {e}")
+            logger.warning(f"⚠️ Dexter Planner 初始化失敗: {e}")
             self.planner = None
+        
+        # 初始化 Dexter Validator
+        self.validator = DexterValidator()
 
     async def run_meeting(
         self, 
@@ -181,6 +186,18 @@ class MeetingOrchestrator:
             }
             
             plan = await self.planner.create_plan(query, context=context)
+            
+            # === VALIDATE STEP ===
+            if emit:
+                await emit("status", {"message": "正在驗證研究計畫..."})
+            
+            is_valid, reason = await self.validator.validate_plan(plan, scratchpad)
+            if not is_valid:
+                logger.warning(f"❌ 研究計畫驗證未通過: {reason}")
+                if emit:
+                    await emit("plan_error", {"reason": reason})
+                return None
+            # =====================
             
             # 加入 scratchpad
             plan_id = scratchpad.add_plan(

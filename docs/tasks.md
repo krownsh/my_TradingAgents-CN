@@ -96,26 +96,34 @@
   - [x] Meeting Store 擴展（researchPlans[]）
 - [x] ResearchPlanPanel 折疊面板
 
-#### Sprint 2: VALIDATE + Scratchpad (2週) <!-- id: 44 -->
-- [ ] 新增 VALIDATE state 至狀態機 <!-- id: 45 -->
-- [ ] 實作 DexterValidator (`validator.py`) <!-- id: 46 -->
-  - [ ] 工具呼叫限制檢查
-  - [ ] 查詢相似度偵測
-  - [ ] Market-aware 驗證規則
-- [ ] 實作 Python Scratchpad (`scratchpad.py`) <!-- id: 47 -->
-- [ ] 建立 MongoDB research_events 表 <!-- id: 48 -->
-- [ ] 前端 Evidence Timeline 組件 <!-- id: 49 -->
+#### Sprint 2: VALIDATE + Scratchpad (已完成) <!-- id: 44 -->
+- [x] 新增 VALIDATE state 至狀態機 <!-- id: 45 -->
+- [x] 實作 DexterValidator (`validator.py`) <!-- id: 46 -->
+  - [x] 工具呼叫限制檢查
+  - [x] 查詢相似度偵測
+  - [x] Market-aware 驗證規則
+- [x] 實作 Python Scratchpad MongoDB 自動同步 (`scratchpad.py`) <!-- id: 47 -->
+- [x] 建立 MongoDB research_events 與 research_sessions 表 <!-- id: 48 -->
+- [ ] 前端 Evidence Timeline 組件 <!-- id: 49 --> (併入後續 UI 優化階段)
 
-#### Sprint 3: Evals + CI Integration (1週) <!-- id: 50 -->
-- [ ] 建立 US 測試題庫 (10 題) <!-- id: 51 -->
-- [ ] 建立 TW 測試題庫 (10 題) <!-- id: 52 -->
-- [ ] 實作自動化評測系統 (`tests/dexter_evals/`) <!-- id: 53 -->
-- [ ] GitHub Actions CI 整合 <!-- id: 54 -->
+#### Sprint 3: Evals + CI Integration (已完成) <!-- id: 50 -->
+- [x] 建立 US/TW 測試題庫 (20 題) <!-- id: 51 -->
+- [x] 實作自動化評測腳本 (`runner.py`) <!-- id: 52 -->
+- [x] 整合 GitHub Actions 評測工作流 <!-- id: 53 -->
+- [x] 實作評分機制與 Markdown 報告生成 <!-- id: 54 -->
 
 ### Phase 7: 未來功能 <!-- id: 55 -->
 - [ ] Dexter Skills 系統整合 (DCF, 技術分析工作流程) <!-- id: 56 -->
 - [ ] 前端研究模式切換開關 <!-- id: 57 -->
 - [ ] 歷史研究報告匯出 (PDF/JSON) <!-- id: 58 -->
 
+### Phase 8: 冗餘代碼清理與安全性審計 <!-- id: 59 -->
+- [x] 移除「學習中心/教學書」相關導航與組件 (Frontend) <!-- id: 60 -->
+- [x] 刪除 `docs/learning/` 及其相關資源文件 <!-- id: 61 -->
+- [x] 清理根目錄冗餘 `.log`, `.txt`, `.bak` 及驗證腳本 <!-- id: 62 -->
+- [x] 檢查並清理 `tradingagents` 中不必要的過期模組 <!-- id: 63 -->
+- [x] 進行全局安全性掃描，確保無未授權的外部連線 (Beaconing) <!-- id: 64 -->
+
 ## 已完成任務 (DONE)
 - [x] 專案架構初步檢視與 Docker 必要性解釋 (2026-02-09) <!-- id: 2 -->
+
