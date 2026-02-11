@@ -35,6 +35,11 @@ class ForeignStockService:
             "quote": 600,        # 10分钟
             "info": 86400,       # 1天
             "kline": 7200,       # 2小时
+        },
+        "TW": {
+            "quote": 600,
+            "info": 86400,
+            "kline": 7200,
         }
     }
 
@@ -78,6 +83,8 @@ class ForeignStockService:
             return await self._get_hk_quote(code, force_refresh)
         elif market == 'US':
             return await self._get_us_quote(code, force_refresh)
+        elif market == 'TW':
+            return await self._get_tw_quote(code, force_refresh)
         else:
             raise ValueError(f"不支持的市场类型: {market}")
     
@@ -1835,3 +1842,63 @@ class ForeignStockService:
             logger.warning(f"⚠️ AKShare获取港股新闻失败: {e}")
             raise
 
+    async def _get_tw_quote(self, code: str, force_refresh: bool = False) -> Dict:
+        """获取台股实时行情（带请求去重）"""
+        if not force_refresh:
+            cache_key = self.cache.find_cached_stock_data(symbol=code, data_source="tw_realtime_quote")
+            if cache_key:
+                cached_data = self.cache.load_stock_data(cache_key)
+                if cached_data:
+                    return self._parse_cached_data(cached_data, 'TW', code)
+
+        # 请求去重
+        request_key = f"TW_quote_{code}_{force_refresh}"
+        async with self._request_locks[request_key]:
+            # 再次检查缓存
+            cache_key = self.cache.find_cached_stock_data(symbol=code, data_source="tw_realtime_quote")
+            if cache_key:
+                cached_data = self.cache.load_stock_data(cache_key)
+                if cached_data: return self._parse_cached_data(cached_data, 'TW', code)
+
+            logger.info(f"🔄 开始获取台股行情: {code}")
+            try:
+                # 台股目前主要依赖 yfinance
+                quote_data = await asyncio.to_thread(self._get_tw_quote_from_yfinance, code)
+                formatted_data = {
+                    'code': code,
+                    'name': quote_data.get('name', f'台股{code}'),
+                    'market': 'TW',
+                    'price': quote_data.get('price'),
+                    'change_percent': quote_data.get('change_percent'),
+                    'volume': quote_data.get('volume'),
+                    'trade_date': quote_data.get('trade_date'),
+                    'currency': 'TWD',
+                    'source': 'yfinance',
+                    'updated_at': datetime.now().isoformat()
+                }
+                self.cache.save_stock_data(symbol=code, data=json.dumps(formatted_data, ensure_ascii=False), data_source="tw_realtime_quote")
+                return formatted_data
+            except Exception as e:
+                logger.error(f"❌ 获取台股行情失败 ({code}): {e}")
+                raise
+
+    def _get_tw_quote_from_yfinance(self, code: str) -> Dict:
+        """从yfinance获取台股行情（自动尝试 .TW 和 .TWO 后缀）"""
+        import yfinance as yf
+        # 尝试后缀
+        for suffix in ['.TW', '.TWO']:
+            try:
+                ticker = yf.Ticker(f"{code}{suffix}")
+                hist = ticker.history(period='1d')
+                if not hist.empty:
+                    latest = hist.iloc[-1]
+                    info = ticker.info
+                    return {
+                        'name': info.get('longName') or info.get('shortName') or f'台股{code}',
+                        'price': float(latest['Close']),
+                        'volume': int(latest['Volume']),
+                        'change_percent': round(((latest['Close'] - latest['Open']) / latest['Open'] * 100), 2) if latest['Open'] != 0 else 0,
+                        'trade_date': hist.index[-1].strftime('%Y-%m-%d')
+                    }
+            except: continue
+        raise Exception(f"無法獲取台股 {code} 的數據")

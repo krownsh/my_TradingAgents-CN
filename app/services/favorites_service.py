@@ -119,35 +119,57 @@ class FavoritesService:
                     it["board"] = "-"
                     it["exchange"] = "-"
 
-        # 批量获取行情（优先使用入库的 market_quotes，30秒更新）
+        # 批量获取行情
         if codes:
             try:
-                coll = db["market_quotes"]
-                cursor = coll.find({"code": {"$in": codes}}, {"code": 1, "close": 1, "pct_chg": 1, "amount": 1})
-                docs = await cursor.to_list(length=None)
-                quotes_map = {str(d.get("code")).zfill(6): d for d in (docs or [])}
+                from app.services.foreign_stock_service import ForeignStockService
+                foreign_service = ForeignStockService(db)
+                
+                # A股列表（用于批量查库）
+                a_codes = [it.get("stock_code") for it in items if it.get("market") == "A股"]
+                quotes_map = {}
+                
+                if a_codes:
+                    coll = db["market_quotes"]
+                    cursor = coll.find({"code": {"$in": a_codes}}, {"code": 1, "close": 1, "pct_chg": 1})
+                    docs = await cursor.to_list(length=None)
+                    # 只有 A股才補零 zfill(6)
+                    quotes_map = {str(d.get("code")).zfill(6): d for d in (docs or [])}
+
                 for it in items:
+                    market = it.get("market")
                     code = it.get("stock_code")
-                    q = quotes_map.get(code)
-                    if q:
-                        it["current_price"] = q.get("close")
-                        it["change_percent"] = q.get("pct_chg")
-                # 兜底：对未命中的代码使用在线源补齐（可选）
-                missing = [c for c in codes if c not in quotes_map]
-                if missing:
-                    try:
-                        quotes_online = await get_quotes_service().get_quotes(missing)
-                        for it in items:
-                            code = it.get("stock_code")
-                            if it.get("current_price") is None:
-                                q2 = quotes_online.get(code, {}) if quotes_online else {}
-                                it["current_price"] = q2.get("close")
-                                it["change_percent"] = q2.get("pct_chg")
-                    except Exception:
-                        pass
-            except Exception:
-                # 查询失败时保持占位 None，避免影响基础功能
-                pass
+                    
+                    if market == "A股":
+                        q = quotes_map.get(code)
+                        if q:
+                            it["current_price"] = q.get("close")
+                            it["change_percent"] = q.get("pct_chg")
+                        # 如果資料庫沒緩存 A股，嘗試用 QuotesService 抓取
+                        elif it.get("current_price") is None:
+                            try:
+                                q_online = await get_quotes_service().get_quotes([code])
+                                if q_online and code in q_online:
+                                    it["current_price"] = q_online[code].get("close")
+                                    it["change_percent"] = q_online[code].get("pct_chg")
+                            except: pass
+                    else:
+                        # 國際市場：美股(US)、港股(HK)、台股(TW)
+                        try:
+                            # 轉換前端市場標籤為服務端市場標籤
+                            srv_market = {"美股": "US", "港股": "HK", "台股": "TW"}.get(market, market)
+                            q_data = await foreign_service.get_quote(srv_market, code)
+                            if q_data:
+                                it["current_price"] = q_data.get("price")
+                                it["change_percent"] = q_data.get("change_percent")
+                                if not it.get("stock_name"): # 順便補齊名稱
+                                    it["stock_name"] = q_data.get("name")
+                        except Exception as e:
+                            import logging
+                            logging.getLogger("webapi").warning(f"获取國際市場行情失敗: {code} ({market}): {e}")
+            except Exception as e:
+                import logging
+                logging.getLogger("webapi").error(f"行情富集過程發生異常: {e}")
 
         return items
 

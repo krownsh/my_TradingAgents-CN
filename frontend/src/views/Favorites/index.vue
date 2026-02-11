@@ -28,6 +28,7 @@
         <el-col :span="4">
           <el-select v-model="selectedMarket" placeholder="市场" clearable>
             <el-option label="A股" value="A股" />
+            <el-option label="台股" value="台股" />
             <el-option label="港股" value="港股" />
             <el-option label="美股" value="美股" />
           </el-select>
@@ -232,6 +233,7 @@
         <el-form-item label="市场类型" prop="market">
           <el-select v-model="addForm.market" @change="handleMarketChange">
             <el-option label="A股" value="A股" />
+            <el-option label="台股" value="台股" />
             <el-option label="港股" value="港股" />
             <el-option label="美股" value="美股" />
           </el-select>
@@ -593,6 +595,12 @@ const validateStockCode = (rule: any, value: any, callback: any) => {
     // A股：6位数字
     if (!/^\d{6}$/.test(code)) {
       callback(new Error('A股代码必须是6位数字，如：000001'))
+      return
+    }
+  } else if (market === '台股') {
+    // 台股：4-6位数字
+    if (!/^\d{4,6}$/.test(code)) {
+      callback(new Error('台股代码通常是4-6位数字，如：2330'))
       return
     }
   } else if (market === '港股') {
