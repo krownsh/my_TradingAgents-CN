@@ -3,7 +3,7 @@ from typing import Optional, List, Union, Dict, Any
 from datetime import datetime, timedelta
 
 from tradingagents.models.core import SymbolKey, MarketType, TimeFrame, AssetType
-from tradingagents.models.stock_data_models import StockDailyQuote, StockRealtimeQuote, StockNews
+from tradingagents.models.stock_data_models import StockDailyQuote, StockRealtimeQuote, StockNews, StockBasicInfo
 from tradingagents.providers.manager import ProviderManager
 from tradingagents.providers.us.yahoo import YahooFinanceProvider
 from tradingagents.providers.tw.twse import TWSEProvider
@@ -104,6 +104,11 @@ class DataFlowInterface:
         """获取实时行情"""
         target_symbol = self._ensure_symbol_key(symbol)
         return await self.provider_manager.get_quote(target_symbol)
+
+    async def get_basic_info(self, symbol: Union[SymbolKey, str]) -> Optional[StockBasicInfo]:
+        """获取基础信息"""
+        target_symbol = self._ensure_symbol_key(symbol)
+        return await self.provider_manager.get_basic_info(target_symbol)
 
     async def get_news(self, symbol: SymbolKey, limit: int = 10, **kwargs) -> List[StockNews]:
         """获取新闻数据"""

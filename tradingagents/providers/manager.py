@@ -96,9 +96,59 @@ class ProviderManager:
                 continue
         
         return None
-
+    async def get_symbol_list(self, market: MarketType) -> List[SymbolKey]:
+        """
+        获取一个市场的标的列表
+        汇总该市场所有 Provider 返回的列表并去重
+        """
+        providers = self._get_providers_for_market(market)
+        all_symbols = []
+        for provider in providers:
+            try:
+                symbols = await provider.get_symbol_list()
+                if symbols:
+                    all_symbols.extend(symbols)
+            except Exception as e:
+                logger.warning(f"Provider {provider.provider_name} failed to get symbol list: {e}")
         
+        # 去重
+        seen = set()
+        unique_symbols = []
+        for s in all_symbols:
+            if s.code not in seen:
+                seen.add(s.code)
+                unique_symbols.append(s)
+        return unique_symbols
+
+    async def get_news(self, symbol: SymbolKey, limit: int = 10, **kwargs) -> List[StockNews]:
+        """
+        获取新闻数据 (自动路由与降级)
+        """
+        providers = self._get_providers_for_market(symbol.market)
+        for provider in providers:
+            try:
+                data = await provider.get_news(symbol, limit=limit, **kwargs)
+                if data:
+                    return data
+            except Exception as e:
+                logger.warning(f"Provider {provider.provider_name} failed to get news for {symbol.code}: {e}")
+                continue
         return []
+
+    async def get_sentiment(self, symbol: SymbolKey, **kwargs) -> str:
+        """
+        获取情绪分析数据 (自动路由与降级)
+        """
+        providers = self._get_providers_for_market(symbol.market)
+        for provider in providers:
+            try:
+                data = await provider.get_sentiment(symbol, **kwargs)
+                if data:
+                    return data
+            except Exception as e:
+                logger.warning(f"Provider {provider.provider_name} failed to get sentiment for {symbol.code}: {e}")
+                continue
+        return ""
 
     async def search_symbol(self, query: str, market: MarketType = None) -> List[SymbolKey]:
         """

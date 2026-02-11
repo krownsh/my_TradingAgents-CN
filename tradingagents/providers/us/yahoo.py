@@ -161,13 +161,6 @@ class YahooFinanceProvider(MarketDataProvider):
             logger.error(f"Failed to get basic info for {symbol}: {e}")
             return None
 
-    async def get_news(self, symbol: SymbolKey, limit: int = 10) -> List[StockNews]:
-        """获取新闻"""
-        try:
-            ticker_symbol = self._convert_symbol(symbol)
-            ticker = yf.Ticker(ticker_symbol)
-            news_items = ticker.news
-            
     async def get_news(self, symbol: SymbolKey, limit: int = 10, **kwargs) -> List[StockNews]:
         """获取新聞 (yfinance)"""
         import yfinance as yf
@@ -222,8 +215,8 @@ class YahooFinanceProvider(MarketDataProvider):
         获取美股列表
         目前返回一个静态列表作为 MVP，后续可集成 Finnhub 或其他源
         """
-        # Fallback list from us_sync_service
-        stock_codes = [
+        # US stocks
+        us_stock_codes = [
             "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AMD", "INTC", "NFLX",
             "JPM", "BAC", "WFC", "GS", "MS",
             "KO", "PEP", "WMT", "HD", "MCD",
@@ -232,7 +225,16 @@ class YahooFinanceProvider(MarketDataProvider):
             "TQQQ", "SQQQ", "SOXL", "SOXS" # ETFs
         ]
         
-        return [SymbolKey(market=MarketType.US, code=code) for code in stock_codes]
+        # HK stocks
+        hk_stock_codes = [
+            "0700", "3690", "9988", "1211", "1810", "1024", "2318", "0005", "0388"
+        ]
+        
+        symbols = []
+        symbols.extend([SymbolKey(market=MarketType.US, code=code) for code in us_stock_codes])
+        symbols.extend([SymbolKey(market=MarketType.HK, code=code) for code in hk_stock_codes])
+        
+        return symbols
 
     def _convert_symbol(self, symbol: SymbolKey) -> str:
         """转换通用 SymbolKey 为 Yahoo Ticker 格式"""

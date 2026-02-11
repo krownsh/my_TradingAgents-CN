@@ -5,7 +5,7 @@ import pandas as pd
 import yfinance as yf
 
 from tradingagents.models.core import SymbolKey, TimeFrame, MarketType
-from tradingagents.models.stock_data_models import StockDailyQuote, StockBasicInfo, StockRealtimeQuote
+from tradingagents.models.stock_data_models import StockDailyQuote, StockBasicInfo, StockRealtimeQuote, StockNews, NewsCategory
 from tradingagents.providers.interfaces import MarketDataProvider
 
 logger = logging.getLogger(__name__)
@@ -144,7 +144,6 @@ class TWSEProvider(MarketDataProvider):
             import pandas as pd
             from io import StringIO
             
-            # Request with headers to look like browser just in case
             headers = {'User-Agent': 'Mozilla/5.0'}
             res = requests.get(url, headers=headers)
             
@@ -156,8 +155,10 @@ class TWSEProvider(MarketDataProvider):
                 return []
             
             df = dfs[0]
-            
             symbols = []
+            
+            # Reset cache
+            self._name_cache = {}
             
             start_idx = 0
             for idx, row in df.iterrows():
@@ -173,9 +174,15 @@ class TWSEProvider(MarketDataProvider):
                 parts = val.split()
                 if len(parts) >= 2:
                     code = parts[0]
+                    name = parts[1]
                     # Simple filter: TWSE stocks are usually 4 digits
                     if len(code) == 4 and code.isdigit():
                         symbols.append(SymbolKey(market=MarketType.TW, code=code))
+                        self._name_cache[code] = {
+                            "name": name,
+                            "industry": row[4] if len(row) > 4 else "Unknown",
+                            "list_date": row[2] if len(row) > 2 else None
+                        }
             
             return symbols
 
@@ -185,6 +192,22 @@ class TWSEProvider(MarketDataProvider):
 
     async def get_basic_info(self, symbol: SymbolKey) -> Optional[StockBasicInfo]:
         """獲取基礎信息 (TWSE)"""
+        # Try cache first
+        if hasattr(self, '_name_cache') and symbol.code in self._name_cache:
+            info = self._name_cache[symbol.code]
+            return StockBasicInfo(
+                symbol=symbol.code,
+                exchange_symbol=f"{symbol.code}.TW",
+                name=info["name"],
+                market="TWSE",
+                board="Main Board",
+                industry=info["industry"],
+                sector="Unknown",
+                area="Taiwan",
+                data_source=self.provider_name
+            )
+
+        # Fallback to yfinance if not in cache
         try:
             ticker_symbol = f"{symbol.code}.TW"
             ticker = yf.Ticker(ticker_symbol)

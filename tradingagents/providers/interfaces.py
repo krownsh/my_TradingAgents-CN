@@ -95,6 +95,12 @@ class MarketDataProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    async def get_news(self, symbol: SymbolKey) -> List[StockNews]:
+        """
+        获取相关新闻
+
+        Returns:
             新闻列表
         """
         return []

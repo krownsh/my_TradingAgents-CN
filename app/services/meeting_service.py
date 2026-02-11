@@ -42,7 +42,7 @@ class MeetingService:
         llm_cfg = next((c for c in config.llm_configs if c.model_name == model_name), config.llm_configs[0])
         
         return create_llm_by_provider(
-            provider=llm_cfg.provider.value,
+            provider=llm_cfg.provider.value if hasattr(llm_cfg.provider, 'value') else llm_cfg.provider,
             model=llm_cfg.model_name,
             backend_url=llm_cfg.api_base,
             temperature=llm_cfg.temperature,

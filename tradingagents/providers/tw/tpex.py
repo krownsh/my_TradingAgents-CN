@@ -5,7 +5,7 @@ import pandas as pd
 import yfinance as yf
 
 from tradingagents.models.core import SymbolKey, TimeFrame, MarketType
-from tradingagents.models.stock_data_models import StockDailyQuote, StockBasicInfo, StockRealtimeQuote
+from tradingagents.models.stock_data_models import StockDailyQuote, StockBasicInfo, StockRealtimeQuote, StockNews, NewsCategory
 from tradingagents.providers.interfaces import MarketDataProvider
 
 logger = logging.getLogger(__name__)
@@ -151,8 +151,10 @@ class TPExProvider(MarketDataProvider):
                 return []
             
             df = dfs[0]
-            
             symbols = []
+            
+            # Reset cache
+            self._name_cache = {}
             
             start_idx = 0
             for idx, row in df.iterrows():
@@ -168,9 +170,15 @@ class TPExProvider(MarketDataProvider):
                 parts = val.split()
                 if len(parts) >= 2:
                     code = parts[0]
+                    name = parts[1]
                     # TPEx stocks are also 4 digits usually
                     if len(code) == 4 and code.isdigit():
                         symbols.append(SymbolKey(market=MarketType.TW, code=code))
+                        self._name_cache[code] = {
+                            "name": name,
+                            "industry": row[4] if len(row) > 4 else "Unknown",
+                            "list_date": row[2] if len(row) > 2 else None
+                        }
             
             return symbols
 
@@ -180,6 +188,22 @@ class TPExProvider(MarketDataProvider):
 
     async def get_basic_info(self, symbol: SymbolKey) -> Optional[StockBasicInfo]:
         """獲取基礎信息 (TPEx)"""
+        # Try cache first
+        if hasattr(self, '_name_cache') and symbol.code in self._name_cache:
+            info = self._name_cache[symbol.code]
+            return StockBasicInfo(
+                symbol=symbol.code,
+                exchange_symbol=f"{symbol.code}.TWO",
+                name=info["name"],
+                market="TPEx",
+                board="OTC",
+                industry=info["industry"],
+                sector="Unknown",
+                area="Taiwan",
+                data_source=self.provider_name
+            )
+
+        # Fallback to yfinance if not in cache
         try:
             ticker_symbol = f"{symbol.code}.TWO"
             ticker = yf.Ticker(ticker_symbol)

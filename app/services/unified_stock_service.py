@@ -50,6 +50,13 @@ class UnifiedStockService:
                 "daily": "stock_daily_quotes_us",
                 "financial": "stock_financial_data_us",
                 "news": "stock_news_us"
+            },
+            "TW": {
+                "basic_info": "stock_basic_info_tw",
+                "quotes": "market_quotes_tw",
+                "daily": "stock_daily_quotes_tw",
+                "financial": "stock_financial_data_tw",
+                "news": "stock_news_tw"
             }
         }
 
@@ -135,7 +142,8 @@ class UnifiedStockService:
         default_priority = {
             "CN": ["tushare", "akshare", "baostock"],
             "HK": ["yfinance_hk", "akshare_hk"],
-            "US": ["yfinance_us"]
+            "US": ["yfinance_us"],
+            "TW": ["twse", "tpex", "yfinance_tw"]
         }
         priority_list = default_priority.get(market, [])
         logger.debug(f"📊 {market} 数据源优先级（默认）: {priority_list}")

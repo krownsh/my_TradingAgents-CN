@@ -77,3 +77,45 @@ docker-compose up -d --build
 docker-compose down
 docker-compose up -d --build
 ```
+
+## 4. 最近修復與更新 (Troubleshooting & Fixes Applied)
+
+以下是最近針對啟動問題所做的修復，請確保你的程式碼包含這些變更：
+
+### 1. Backend 啟動錯誤
+- **`yaml: line 25`**: 修正了 `docker-compose.yml` 中 `backend` 服務的 `environment` 格式錯誤。
+- **`ModuleNotFoundError: No module named 'backend'`**: 在 `app/main.py` 中暫時註解掉了缺失的 `daily_analysis` 模組引用。
+- **`IndentationError`**: 修正了 `tradingagents/meeting/states.py` 中 `MeetingState` Enum 的縮排錯誤。
+- **`SyntaxError`**: 修正了 `tradingagents/providers/us/yahoo.py` 中 `get_basic_info` 和 `get_news` 方法的語法結構。
+- **`NameError`**: 在 `twse.py` 和 `tpex.py` 中補上了缺失的 `StockNews` 和 `NewsCategory` 引用。
+
+### 2. 資料庫連接
+- **`Connection refused`**: 更新了 `.env` 檔案，將 `MONGODB_HOST` 從 `localhost` 改為 `mongodb`，`REDIS_HOST` 改為 `redis`，以確保 Docker 容器內部能正確通訊。
+
+### 3. 前端構建錯誤
+- **`SyntaxError`**: 修正了 `frontend/src/views/DailyAnalysis/index.vue` 中按鈕 `@click` 事件的語法錯誤 (`refresh ConfigStocks` -> `refreshConfigStocks`)。
+
+### 4. 輔助工具
+- **`async_utils.py`**: 新增了 `tradingagents/utils/async_utils.py`，提供 `run_async` 函數來解決同步調用異步函數的問題 (如 Jupyter/Uvicorn 環境)。
+
+## 5. 驗證服務狀態
+
+啟動後，請執行以下命令確認所有服務皆正常運行 (Status 為 Up 或 healthy)：
+
+```bash
+docker-compose ps
+```
+
+預期輸出應包含：
+- `tradingagents-backend` (healthy)
+- `tradingagents-frontend` (healthy 或 starting)
+- `tradingagents-mongodb` (healthy)
+- `tradingagents-redis` (healthy)
+
+若發現服務狀態為 `Exit` 或 `Restarting`，請查看詳細日誌：
+
+```bash
+docker-compose logs --tail 50 backend
+docker-compose logs --tail 50 frontend
+```
+

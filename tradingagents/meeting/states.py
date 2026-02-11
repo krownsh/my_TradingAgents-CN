@@ -13,4 +13,4 @@ class MeetingState(str, Enum):
     EXECUTE = "EXECUTE"          # 執行研究步驟
     DISCUSS = "DISCUSS"          # 專家討論
     SYNTHESIZE = "SYNTHESIZE"    # 總結報告
-   FINISHED = "FINISHED"        # 會議結束
+    FINISHED = "FINISHED"        # 會議結束

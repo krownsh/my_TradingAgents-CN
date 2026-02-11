@@ -29,7 +29,7 @@ from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.logging_config import setup_logging
 from app.routers import auth_db as auth, analysis, screening, queue, sse, health, favorites, config, reports, database, operation_logs, tags, tushare_init, akshare_init, baostock_init, historical_data, multi_period_sync, financial_data, news_data, social_media, internal_messages, usage_statistics, model_capabilities, cache, logs, meeting as meeting_router
-from backend.routers import daily_analysis as daily_analysis_router  # Daily Stock Analysis Module
+# from backend.routers import daily_analysis as daily_analysis_router  # Daily Stock Analysis Module
 from app.routers import sync as sync_router, multi_source_sync
 from app.routers import stocks as stocks_router
 from app.routers import stock_data as stock_data_router
@@ -61,9 +61,11 @@ from app.worker.baostock_sync_service import (
     run_baostock_historical_sync,
     run_baostock_status_check
 )
-# 港股和美股改为按需获取+缓存模式，不再需要定时同步任务
+# 港股和美股改为按需获取+缓存模式，也可以通过 MarketDataSyncService 进行全量列表同步
 # from app.worker.hk_sync_service import ...
 # from app.worker.us_sync_service import ...
+from app.services.market_data_sync_service import get_market_sync_service
+from tradingagents.models.core import MarketType
 from app.middleware.operation_log_middleware import OperationLogMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -553,10 +555,21 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"❌ 新闻同步失败: {e}", exc_info=True)
 
-        # ==================== 港股/美股数据配置 ====================
-        # 港股和美股采用按需获取+缓存模式，不再配置定时同步任务
-        logger.info("🇭🇰 港股数据采用按需获取+缓存模式")
-        logger.info("🇺🇸 美股数据采用按需获取+缓存模式")
+        # ==================== 多市场数据同步配置 (TW, US, HK) ====================
+        # 同步全球市场列表基础信息
+        market_sync_service = get_market_sync_service()
+        
+        # 启动后异步执行一次全球市场列表同步 (不阻塞主线程)
+        asyncio.create_task(market_sync_service.sync_all_markets())
+        
+        # 添加定时任务 (每日凌晨 05:00 同步全球市场列表)
+        scheduler.add_job(
+            market_sync_service.sync_all_markets,
+            CronTrigger(hour=5, minute=0, timezone=settings.TIMEZONE),
+            id="global_markets_sync",
+            name="全球市场列表同步 (TW, US, HK)"
+        )
+        logger.info("🌍 全球市场列表同步任务已配置 (每日 05:00)")
 
         scheduler.add_job(
             run_news_sync,
@@ -720,7 +733,7 @@ app.include_router(sse.router, prefix="/api/stream", tags=["streaming"])
 app.include_router(sync_router.router)
 app.include_router(multi_source_sync.router)
 app.include_router(paper_router.router, prefix="/api", tags=["paper"])
-app.include_router(daily_analysis_router.router, tags=["daily_analysis"])  # Daily Stock Analysis
+# app.include_router(daily_analysis_router.router, tags=["daily_analysis"])  # Daily Stock Analysis
 app.include_router(tushare_init.router, prefix="/api", tags=["tushare-init"])
 app.include_router(akshare_init.router, prefix="/api", tags=["akshare-init"])
 app.include_router(baostock_init.router, prefix="/api", tags=["baostock-init"])
